@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'BookStore Monolithic Deployment - Phase 1'
+
+Parameters:
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+  KeyName:
+    Description: Name of an existing EC2 KeyPair
+    Type: AWS::EC2::KeyPair::KeyName
+  SSHLocation:
+    Description: IP address range that can SSH to the EC2 instance
+    Type: String
+    Default: 0.0.0.0/0
+  CertificateArn:
+    Description: ARN of your ACM certificate (optional for development)
+    Type: String
+    Default: ''
+
+Resources:
+  BookStoreSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP, HTTPS and SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0  # For testing, restrict in production
+
+  BookStoreInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+        - !Ref BookStoreSecurityGroup
+      KeyName: !Ref KeyName
+      ImageId: ami-0261755bbcb8c4a84  # Ubuntu 20.04 LTS in us-east-1
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          # Update system
+          apt-get update
+          apt-get upgrade -y
+          
+          # Install Docker and Docker Compose
+          apt-get install -y apt-transport-https ca-certificates curl software-properties-common git
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+          add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          apt-get update
+          apt-get install -y docker-ce docker-ce-cli containerd.io
+          
+          # Install Docker Compose
+          curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          
+          # Clone the repository
+          git clone https://github.com/Alkran93/bookstore-monolith.git /home/ubuntu/bookstore
+          
+          # Start the application
+          cd /home/ubuntu/bookstore
+          docker-compose up -d
+          
+          # Install and configure Nginx
+          apt-get install -y nginx certbot python3-certbot-nginx
+          
+          # Configure Nginx as a reverse proxy
+          cat > /etc/nginx/sites-available/bookstore << 'EOL'
+          server {
+              listen 80;
+              server_name _;
+              
+              location / {
+                  proxy_pass http://localhost:5000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+          EOL
+          
+          # Enable the site
+          ln -s /etc/nginx/sites-available/bookstore /etc/nginx/sites-enabled/
+          rm /etc/nginx/sites-enabled/default
+          
+          # Test and restart Nginx
+          nginx -t
+          systemctl restart nginx
+          
+          # Add a tag to indicate the instance is ready
+          echo "Installation complete" > /home/ubuntu/installation_complete.txt
+
+  BookStoreElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref BookStoreInstance
+
+Outputs:
+  InstanceId:
+    Description: ID of the EC2 instance
+    Value: !Ref BookStoreInstance
+  PublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !Ref BookStoreElasticIP
+  PublicDNS:
+    Description: Public DNS of the EC2 instance
+    Value: !GetAtt BookStoreInstance.PublicDnsName
+  WebsiteURL:
+    Description: URL for the deployed BookStore application (HTTP)
+    Value: !Sub http://${BookStoreElasticIP}
