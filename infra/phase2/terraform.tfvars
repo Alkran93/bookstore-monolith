@@ -1,0 +1,15 @@
+aws_region        = "us-east-1"
+project_name      = "bookstore"
+environment       = "dev"
+vpc_id            = "vpc-081e3e04646dfe377" 
+#public_subnets    = ["subnet-032298ff169b090c5", "subnet-033cda4996af4ed94"] 
+use_ssl           = false # Cambiar a true si desea utilizar SSL
+ssh_key_name = "bookstore-key" 
+instance_type     = "t2.micro"
+db_instance_class = "db.t3.micro"
+db_name           = "bookstore"
+db_username       = "admin"
+db_password       = "123456789*" # Reemplazar con una contraseña segura
+min_size          = 2
+max_size          = 4
+desired_capacity  = 2
