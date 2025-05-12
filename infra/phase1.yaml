@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Proyecto2 - Fase 1: Despliegue de BookStore Monolitico'
+
+Parameters:
+  KeyName:
+    Description: Nombre del par de claves EC2
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Debe ser un nombre de par de claves EC2 existente
+
+  InstanceType:
+    Description: Tipo de instancia EC2
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t2.medium
+    ConstraintDescription: Debe ser un tipo de instancia válido.
+
+  SSHLocation:
+    Description: Rango de IP permitido para SSH (CIDR)
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Debe ser un bloque CIDR válido
+
+Resources:
+  BookStoreSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Grupo de seguridad para BookStore
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+
+  BookStoreInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+        - !Ref BookStoreSecurityGroup
+      KeyName: !Ref KeyName
+      ImageId: ami-0005e0cfe09cc9050  # Amazon Linux 2023 AMI para us-east-1
+      Tags:
+        - Key: Name
+          Value: BookStore-Monolith
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          # Actualizar el sistema
+          dnf update -y
+          
+          # Instalar herramientas necesarias
+          dnf install -y git docker python3-pip nginx certbot python3-certbot-nginx
+
+          # Configurar y habilitar Docker
+          systemctl enable docker
+          systemctl start docker
+          
+          # Instalar docker-compose
+          curl -L "https://github.com/docker/compose/releases/download/v2.24.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+          
+          # Crear directorio para la aplicación
+          mkdir -p /app
+          
+          # Clonar el repositorio
+          git clone https://github.com/Alkran93/bookstore-monolith.git /app
+          cd /app
+          
+          # Configure NGINX
+          cat > /etc/nginx/conf.d/bookstore.conf << 'EOL'
+          server {
+              listen 80;
+              server_name proyecto2.shop www.proyecto2.shop;
+              
+              location / {
+                  proxy_pass http://localhost:5000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+          EOL
+          
+          # Eliminar el sitio por defecto de NGINX
+          rm -f /etc/nginx/conf.d/default.conf
+          
+          # Reiniciar NGINX para aplicar configuración
+          systemctl enable nginx
+          systemctl start nginx
+          
+          # Iniciar la aplicación con docker-compose
+          cd /app
+          docker-compose up -d
+          
+          # Mensaje final
+          echo "BookStore setup completed" > /var/log/bookstore-setup.log
+
+Outputs:
+  InstanceId:
+    Description: ID de la instancia EC2
+    Value: !Ref BookStoreInstance
+  
+  PublicDNS:
+    Description: DNS público de la instancia EC2
+    Value: !GetAtt BookStoreInstance.PublicDnsName
+  
+  PublicIP:
+    Description: IP pública de la instancia EC2
+    Value: !GetAtt BookStoreInstance.PublicIp
