@@ -12,7 +12,7 @@ This document details the process of deploying the Monolithic BookStore applicat
 - [Step 2: Infrastructure Deployment](#paso-2-despliegue-de-la-infraestructura)
 - [Step 3: DNS Configuration](#paso-3-configuración-de-dns)
 - [Step 4: SSL Certificate Configuration](#paso-4-configuración-del-certificado-ssl)
-- Step 5: Deployment Verification](#paso-5-verificación-del-despliegue)
+- [Step 5: Deployment Verification](#paso-5-verificación-del-despliegue)
 - [Troubleshooting](#troubleshooting)
 - [Next Steps](#próximos-pasos)
 
