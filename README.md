@@ -1,193 +1,195 @@
-# Proyecto 2 - BookStore Monolítico y Microservicios
+# Project 2 - Monolithic and Microservices BookStore
 
-## Fase 1: Despliegue de BookStore Monolítico en AWS
+## Phase 1: Deployment of the Monolithic BookStore on AWS
 
-Este documento detalla el proceso de despliegue de la aplicación BookStore Monolítica en una Máquina Virtual en AWS, con dominio propio, certificado SSL y Proxy inverso en NGINX.
+This document details the process of deploying the Monolithic BookStore application on a Virtual Machine on AWS, with a custom domain, SSL certificate, and Reverse Proxy using NGINX.
 
-## Tabla de Contenidos
+## Table of Contents
 
-- [Requisitos Previos](#requisitos-previos)
-- [Arquitectura](#arquitectura)
-- [Paso 1: Preparación del entorno](#paso-1-preparación-del-entorno)
-- [Paso 2: Despliegue de la infraestructura](#paso-2-despliegue-de-la-infraestructura)
-- [Paso 3: Configuración de DNS](#paso-3-configuración-de-dns)
-- [Paso 4: Configuración del certificado SSL](#paso-4-configuración-del-certificado-ssl)
-- [Paso 5: Verificación del despliegue](#paso-5-verificación-del-despliegue)
+- [Prerequisites](#requisitos-previos)
+- [Architecture](#arquitectura)
+- [Step 1: Environment Preparation](#paso-1-preparación-del-entorno)
+- [Step 2: Infrastructure Deployment](#paso-2-despliegue-de-la-infraestructura)
+- [Step 3: DNS Configuration](#paso-3-configuración-de-dns)
+- [Step 4: SSL Certificate Configuration](#paso-4-configuración-del-certificado-ssl)
+- Step 5: Deployment Verification](#paso-5-verificación-del-despliegue)
 - [Troubleshooting](#troubleshooting)
-- [Próximos pasos](#próximos-pasos)
+- [Next Steps](#próximos-pasos)
 
-## Requisitos Previos
+## Prerequisites
 
-- Cuenta de AWS Academy
-- Par de claves EC2 generado
-- Dominio registrado (proyecto2.shop en Hostinger)
-- AWS CLI configurado
+- AWS Academy Account
+- EC2 key pair generated
+- Registered domain (proyecto2.shop on Hostinger)
+- Configured AWS CLI
 
-## Arquitectura
+## Architecture
 
-La arquitectura para la Fase 1 consiste en:
+The architecture for Phase 1 consists of:
 
-- Una instancia EC2 Amazon Linux 2023
-- Puerto 80 y 443 expuestos para tráfico web
-- Puerto 5000 para la aplicación BookStore
-- NGINX como proxy inverso
-- Certificado SSL/TLS gestionado por Certbot
-- Docker y Docker-Compose para la ejecución de la aplicación
+- An Amazon Linux 2023 EC2 instance
+- Ports 80 and 443 exposed for web traffic
+- Port 5000 for the BookStore application
+- NGINX as a reverse proxy
+- SSL/TLS certificate managed by Certbot
+- Docker and Docker-Compose for application execution
 
-## Paso 1: Preparación del entorno
+##  Step 1: Environment Preparation
 
-Clone el repositorio y prepare el entorno:
+Clone the repository and prepare the environment:
 
 ```bash
-# Actualizar el sistema
+# Update the system
 sudo yum update -y
 
-# Instalar herramientas necesarias
+# Install necessary tools
 sudo yum install -y git jq aws-cli
 
-# Clonar el repositorio
+# Clone the repository
 git clone https://github.com/Alkran93/bookstore-monolith.git
 cd bookstore-monolith
 
-# Crear directorios para el proyecto
+# Create directories for the project
 mkdir -p infra
 ```
 
-## Paso 2: Despliegue de la infraestructura
+## Step 2: Infrastructure Deployment
 
-### Personalización de la plantilla CloudFormation
+### Customizing the CloudFormation template
 
-La plantilla `infra/phase1.yaml` debe modificarse para incluir:
-- Tu par de claves EC2
-- El tipo de instancia deseado (t2.micro es suficiente)
+The template infra/phase1.yaml must be modified to include:
+- Your EC2 key pair
+- The desired instance type (t2.micro is sufficient)
 
-### Despliegue con CloudFormation
+### Deployment with CloudFormation
 
 ```bash
-# Dar permisos de ejecución al script
+# Grant execution permissions to the script
 chmod +x deploy_phase1.sh
 
-# Editar el script para configurar tu KEY_NAME
+# Edit the script to configure your KEY_NAME
 nano deploy_phase1.sh
 
-# Ejecutar el script de despliegue
+# Run the deployment script
 ./deploy_phase1.sh
 ```
 
-El script realizará:
-1. Creación de un grupo de seguridad con puertos 22, 80, 443 y 5000 abiertos
-2. Lanzamiento de una instancia EC2 con Amazon Linux 2023
-3. Instalación y configuración de Docker, Docker-Compose y NGINX
-4. Clonación del repositorio y preparación de la aplicación
-5. Configuración inicial de NGINX como proxy inverso
+The script will:
+1. Create a security group with ports 22, 80, 443, and 5000 open
+2. Launch an EC2 instance with Amazon Linux 2023
+3. Install and configure Docker, Docker-Compose, and NGINX
+4. Clone the repository and prepare the application
+5. Configure NGINX as a reverse proxy
 
-Al finalizar, el script mostrará:
-- ID de la instancia
-- DNS público
-- IP pública
+Upon completion, the script will show:
 
-## Paso 3: Configuración de DNS
+- Instance ID
+- Public DNS
+- Public IP
 
-Configurar los registros DNS en Hostinger:
+## Step 3: DNS Configuration
 
-1. Accede a tu panel de control de Hostinger
-2. Ve a la sección de DNS del dominio proyecto2.shop
-3. Crea o actualiza los siguientes registros:
+Configure the DNS records in Hostinger:
 
-| Tipo  | Nombre | Valor           | TTL    |
+1. Access your Hostinger control panel
+2. Go to the DNS section of the domain proyecto2.shop
+3. Create or update the following records::
+
+| Type  | Name   | Value           | TTL    |
 |-------|--------|-----------------|--------|
-| A     | @      | [IP pública]    | 300    |
-| A     | www    | [IP pública]    | 300    |
+| A     | @      | [Public IP]    | 300    |
+| A     | www    | [Public IP]    | 300    |
 
-Donde [IP pública] es la dirección IP mostrada por el script de despliegue.
+Where [Public IP] is the IP address displayed by the deployment script.
 
-## Paso 4: Configuración del certificado SSL
+## Step 4: SSL Certificate Configuration
 
-Conéctate a la instancia EC2:
+Connect to the EC2 instance:
 
 ```bash
-ssh -i tu-clave.pem ec2-user@[IP pública]
+ssh -i your-key.pem ec2-user@[Public IP]
 ```
 
-Ejecuta el script de configuración SSL:
+Run the SSL configuration script:
 
 ```bash
-# Dar permisos de ejecución
+# Grant execution permissions
 sudo chmod +x configure_ssl.sh
 
-# Ejecutar el script
+# Run the script
 sudo ./configure_ssl.sh
 ```
 
-El script:
-1. Verifica la instalación de Certbot
-2. Comprueba que NGINX esté en funcionamiento
-3. Obtiene y configura un certificado SSL para proyecto2.shop y www.proyecto2.shop
-4. Verifica el estado de la aplicación Docker
+The script will:
+1. Verify Certbot installation
+2. Check that NGINX is running
+3. Obtain and configure an SSL certificate for proyecto2.shop and www.proyecto2.shop
+4. Verify the Docker application status
 
-## Paso 5: Verificación del despliegue
+## Step 5: Deployment Verification
 
-Para verificar que todo funciona correctamente:
+To verify everything is working correctly:
 
 ```bash
-# Verificar que la aplicación responde por HTTPS
+# Verify the application responds via HTTPS
 curl -vk https://proyecto2.shop
 
-# Verificar el estado de Docker
+# Check Docker status
 docker ps
 
-# Verificar los logs de la aplicación
+# Check application logs
 docker-compose logs
 ```
 
-También puedes acceder directamente desde tu navegador a:
+You can also access directly via your browser:
 - https://proyecto2.shop
 - https://www.proyecto2.shop
 
 ## Troubleshooting
 
-### Problemas comunes:
+### Common Issues:
 
-1. **La aplicación no responde en el puerto 5000**
+1. **The application is not responding on port 5000**
    ```bash
-   # Verificar que el contenedor está en ejecución
+   # Verify that the container is running
    docker ps
-   
-   # Si no está en ejecución, iniciar docker-compose
+
+   # If not running, start docker-compose
    cd /app
    docker-compose up -d
-   
-   # Verificar logs
+
+   # Check logs
    docker-compose logs
    ```
 
-2. **NGINX no redirige correctamente a la aplicación**
+2. **NGINX is not redirecting correctly to the application
    ```bash
-   # Verificar la configuración de NGINX
+   # Verify NGINX configuration
    sudo nginx -t
-   
-   # Ver logs de NGINX
+
+   # Check NGINX logs
    sudo cat /var/log/nginx/error.log
    ```
 
-3. **Error al obtener certificado SSL**
+3. **Error obtaining SSL certificate
+
    ```bash
-   # Verificar que los registros DNS están propagados
+   # Verify DNS records are propagated
    nslookup proyecto2.shop
-   
-   # Intentar nuevamente la obtención del certificado
+
+   # Try obtaining the certificate again
    sudo certbot --nginx -d proyecto2.shop -d www.proyecto2.shop
    ```
 
-4. **Problemas de conectividad**
+4. **Connectivity issues**
    ```bash
-   # Verificar grupo de seguridad en AWS
-   aws ec2 describe-security-groups --group-ids [ID_GRUPO_SEGURIDAD]
+   # Verify security group in AWS
+   aws ec2 describe-security-groups --group-ids [SECURITY_GROUP_ID]
    
-   # Verificar que los puertos necesarios están abiertos
+   # Verify required ports are open
    sudo netstat -tulpn
    ```
 
 ---
 
-© 2025 - Universidad EAFIT - ST0263: Tópicos Especiales en Telemática
+© 2025 - Universidad EAFIT - ST0263: Special Topics in Telematics
